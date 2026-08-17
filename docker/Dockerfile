@@ -10,8 +10,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py sources.py render.py i18n.py ./
-COPY lang/ ./lang/
+COPY server/ ./
 
 RUN useradd --system --create-home --home-dir /home/dashink --uid 10001 dashink
 USER dashink

@@ -6,7 +6,7 @@ Homelab status and weather rendered to a 600x800 greyscale PNG for a jailbroken 
 
 ![the panel running on a Kindle](docs/device.jpg)
 
-Built for a **Kindle 7th Generation (KT2, 2014)** on firmware `5.12.2.2`: 600x800, 167 ppi, 16 grey levels, no front light. Any device that can fetch a URL and draw a PNG will work; the size is set by `render.py`.
+Built for a **Kindle 7th Generation (KT2, 2014)** on firmware `5.12.2.2`: 600x800, 167 ppi, 16 grey levels, no front light. Any device that can fetch a URL and draw a PNG will work; the size is set by `server/render.py`.
 
 The service does one thing: `GET /dash.png` renders the current panel from whatever the sources last returned. There is no scheduler and nothing persisted. The Kindle fetches that URL on a loop and draws it to the framebuffer. E-ink holds the last image with no power, so a device that dies mid-loop leaves a readable screen.
 
@@ -37,7 +37,7 @@ All of it lives in `.env`. Nothing is required.
 
 | Variable | |
 |---|---|
-| `LANG_CODE` | `en` or `de`. A new language is one file in [`lang/`](lang/) |
+| `LANG_CODE` | `en` or `de`. A new language is one file in [`server/lang/`](server/lang/) |
 | `NODE_NAME` | shown top-left. Falls back to the container hostname |
 | `HOST_SOURCE` | `local` reads `/proc`; `proxmox` uses the node API |
 | `WEATHER_LAT` / `WEATHER_LON` | empty omits the whole weather block |

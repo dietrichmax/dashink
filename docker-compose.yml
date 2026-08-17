@@ -2,7 +2,9 @@ services:
   dashink:
     image: ghcr.io/dietrichmax/dashink:latest
     # Build locally instead with: docker compose build
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     container_name: dashink
     restart: unless-stopped
     ports:
