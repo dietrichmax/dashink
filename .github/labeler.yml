@@ -6,7 +6,7 @@ ci:
 build:
   - changed-files:
       - any-glob-to-any-file:
-          - "Dockerfile"
+          - "docker/**"
           - "docker-compose.yml"
           - "requirements.txt"
 
@@ -19,15 +19,13 @@ docs:
 server:
   - changed-files:
       - any-glob-to-any-file:
-          - "app.py"
-          - "sources.py"
-          - "render.py"
-          - "i18n.py"
+          # Top level only, so catalogue changes stay i18n and not both.
+          - "server/*.py"
 
 i18n:
   - changed-files:
       - any-glob-to-any-file:
-          - "lang/**"
+          - "server/lang/**"
 
 kindle:
   - changed-files:
