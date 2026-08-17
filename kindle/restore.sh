@@ -2,21 +2,18 @@
 # Stop the dashboard loop and bring the reader UI back.
 #
 # The escape hatch for dashink.sh, which stops lab126_gui and leaves the
-# touchscreen dead — including this file's own library entry. Assume SSH is the
-# only way in, and hold power ~20s if it is not.
-#
-# ps/grep/awk rather than pkill: busybox on 5.12.2.2 may not carry pkill, and
-# this is the recovery path.
-
+# touchscreen dead, including this file's own library entry.
 set -u
 
-# `start` is in /sbin, which is on the framework's PATH but not on ssh's. The
-# call below silences stderr, so without this it failed invisibly.
+# `start` is in /sbin, which is on the framework's PATH but not on ssh's.
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH
 export PATH
 
-for pid in $(ps | grep '[d]ashink\.sh' | awk '{print $1}'); do
-  kill "$pid" 2> /dev/null
+for d in /proc/[0-9]*; do
+  [ -r "$d/cmdline" ] || continue
+  case "$(tr '\0' ' ' < "$d/cmdline")" in
+    *dashink.sh*) kill "${d#/proc/}" 2> /dev/null ;;
+  esac
 done
 
 rm -f /tmp/dashink.pid
