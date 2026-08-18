@@ -2,7 +2,7 @@ FROM python:3.14.6-slim@sha256:7bec7ddcddeff7975d6ba9b4be7dd6f6b2f55e7491539145e
 
 # DejaVu is the render font; Pillow needs a real TTF and slim images ship none.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends fonts-dejavu-core curl \
+ && apt-get install -y --no-install-recommends fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
