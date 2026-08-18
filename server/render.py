@@ -20,9 +20,7 @@ W, H = 600, 800
 MARGIN = 24
 BLACK, GREY, LIGHT, WHITE = 0, 110, 190, 255
 
-# Where the container's fonts-dejavu-core lands. Override it for local
-# development on anything that is not Debian.
-FONT_DIR = os.environ.get("DASHINK_FONT_DIR", "/usr/share/fonts/truetype/dejavu")
+FONT_DIR = os.environ.get("DASHINK_FONT_DIR", "/usr/share/fonts/dejavu")
 _FONTS = {}
 
 # Horizontal rules, top to bottom: under the header, under the tiles, above the

@@ -1,18 +1,22 @@
-FROM python:3.14.6-slim@sha256:7bec7ddcddeff7975d6ba9b4be7dd6f6b2f55e7491539145e2978f7f97ce9144
+FROM python:3.14.7-alpine@sha256:05b2b8b732ecd268fee8727a369f936f022d1321b59befd13c30ede22769dcdc
 
-# DejaVu is the render font; Pillow needs a real TTF and slim images ship none.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends fonts-dejavu-core \
- && rm -rf /var/lib/apt/lists/*
+# DejaVu is the render font; Pillow needs a real TTF and the image ships none.
+RUN apk add --no-cache font-dejavu
+ENV DASHINK_FONT_DIR=/usr/share/fonts/dejavu
 
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+ && rm -rf /usr/local/lib/python*/site-packages/pip* \
+           /usr/local/lib/python*/site-packages/setuptools* \
+           /usr/local/lib/python*/site-packages/pkg_resources
 
 COPY server/ ./
 
-RUN useradd --system --create-home --home-dir /home/dashink --uid 10001 dashink
+RUN addgroup -S dashink \
+ && adduser -S -u 10001 -G dashink -h /home/dashink dashink \
+ && chmod 700 /home/dashink
 USER dashink
 
 EXPOSE 8099
