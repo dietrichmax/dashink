@@ -19,8 +19,12 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    uses: ./.github/workflows/build-test.yml
+
   build_scan_push:
     runs-on: ubuntu-latest
+    needs: test
     permissions:
       packages: write
       contents: read
