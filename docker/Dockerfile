@@ -1,5 +1,10 @@
 FROM python:3.14.7-alpine@sha256:05b2b8b732ecd268fee8727a369f936f022d1321b59befd13c30ede22769dcdc
 
+# Lets Renovate find this project's releases: it resolves a Docker image to a
+# source repo through this label, and without it a bump PR arrives with no
+# release notes and nothing reports why. Must stay in the FINAL stage.
+LABEL org.opencontainers.image.source="https://github.com/dietrichmax/dashink"
+
 # DejaVu is the render font; Pillow needs a real TTF and the image ships none.
 RUN apk add --no-cache font-dejavu
 ENV DASHINK_FONT_DIR=/usr/share/fonts/dejavu
