@@ -14,6 +14,11 @@ set -u
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH
 export PATH
 
+# Overrides for any DASHINK_* below, kept out of this file because deploying
+# overwrites it. eval through tr, not `.`: edited on Windows, a stray CR turns
+# INTERVAL into a string that breaks sleep.
+[ -r /mnt/us/dashink.conf ] && eval "$(tr -d '\r' < /mnt/us/dashink.conf)"
+
 URL="${DASHINK_URL:-http://dashink.lan:8099/dash.png}"
 INTERVAL="${DASHINK_INTERVAL:-300}"
 OUT=/tmp/dashink.png
@@ -40,8 +45,13 @@ echo $$ > "$LOCK"
 stop lab126_gui > /dev/null 2>&1
 lipc-set-prop com.lab126.powerd preventScreenSaver 1 > /dev/null 2>&1
 
-# Silenced for the same reason as fetch: eips writes update_mode/wave_mode
-# chatter on every call.
+# The escape hatch, since stopping lab126_gui kills the touchscreen. event0 is
+# max77696-onkey and carries only the power key, so any read means a press.
+( dd if=/dev/input/event0 bs=16 count=1 > /dev/null 2>&1
+  sh "$(dirname "$0")/restore.sh" ) &
+
+# Silenced because sh_integration paints stdout onto the panel, and eips writes
+# update_mode/wave_mode chatter on every call.
 eips -c > /dev/null 2>&1
 i=0
 fails=0

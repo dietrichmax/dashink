@@ -43,7 +43,7 @@ Confirm the jailbreak method against the [jailbreak wizard](https://kindlemoddin
       IdentitiesOnly yes
     ```
 
-14. Copy [`kindle/`](../kindle/)`*.sh` to `/mnt/us/documents/` and set `DASHINK_URL` at the top of `dashink.sh`. With SSH working this no longer means plugging the Kindle in:
+14. Copy [`kindle/`](../kindle/)`*.sh` to `/mnt/us/documents/`. With SSH working this no longer means plugging the Kindle in:
 
     ```bash
     ssh kindle 'cat > /mnt/us/documents/dashink.sh' < kindle/dashink.sh
@@ -52,6 +52,15 @@ Confirm the jailbreak method against the [jailbreak wizard](https://kindlemoddin
     ```
 
     Piped through `cat` rather than `scp`, because dropbear here has no `scp` binary on the far side, and this copies bytes exactly so nothing rewrites the line endings on the way.
+
+    **Point it at your server.** The default is `http://dashink.lan:8099/dash.png`, so if your LAN DNS resolves `dashink.lan` there is nothing to configure. Otherwise put the address in `/mnt/us/dashink.conf`:
+
+    ```sh
+    DASHINK_URL=http://192.168.1.10:8099/dash.png
+    DASHINK_INTERVAL=300
+    ```
+
+    That file is on the volume your computer mounts, so it is editable by plugging the Kindle in, with no shell. Keep it **out** of the script: deploying is a plain overwrite, so anything set inside `dashink.sh` is lost the next time you update it. Any `DASHINK_*` the script reads can be set here.
 
     **Check it parses before trusting it**, especially from a Windows checkout. Check `restore.sh` first, since it is the escape hatch:
 
