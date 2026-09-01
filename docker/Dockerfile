@@ -1,4 +1,4 @@
-FROM python:3.14.7-alpine@sha256:05b2b8b732ecd268fee8727a369f936f022d1321b59befd13c30ede22769dcdc
+FROM python:3.14.7-alpine@sha256:3f818d6811ff5f3f2b5e5d836df3d25c2dd2e588d3b4981338a8ba17e422f74f
 
 # Lets Renovate find this project's releases: it resolves a Docker image to a
 # source repo through this label, and without it a bump PR arrives with no
