@@ -9,6 +9,9 @@
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH
 export PATH
 
+# The same override the loop reads, so this tests the URL the loop fetches.
+[ -r /mnt/us/dashink.conf ] && eval "$(tr -d '\r' < /mnt/us/dashink.conf)"
+
 URL="${DASHINK_URL:-http://dashink.lan:8099/dash.png}"
 
 echo "--- display ---"

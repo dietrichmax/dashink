@@ -42,6 +42,8 @@ if [ -f "$LOCK" ] && kill -0 "$(cat "$LOCK" 2> /dev/null)" 2> /dev/null; then
 fi
 echo $$ > "$LOCK"
 
+echo "$(date '+%Y-%m-%d %H:%M:%S') start url=$URL" >> /tmp/dashink.log
+
 stop lab126_gui > /dev/null 2>&1
 lipc-set-prop com.lab126.powerd preventScreenSaver 1 > /dev/null 2>&1
 
@@ -57,7 +59,8 @@ i=0
 fails=0
 
 while true; do
-  if fetch "$OUT.tmp" && [ -s "$OUT.tmp" ]; then
+  fetch "$OUT.tmp"; rc=$?
+  if [ "$rc" -eq 0 ] && [ -s "$OUT.tmp" ]; then
     mv "$OUT.tmp" "$OUT"
     fails=0
     i=$((i + 1))
@@ -70,11 +73,13 @@ while true; do
   else
     rm -f "$OUT.tmp"
     fails=$((fails + 1))
-    echo "$(date '+%Y-%m-%d %H:%M:%S') fetch failed ($fails)" >> /tmp/dashink.log
+    cm=$(lipc-get-prop com.lab126.wifid cmState 2> /dev/null)
+    # rc = curl/wget exit: 6 unresolved, 7 unreachable, 28 timeout, 0 empty.
+    echo "$(date '+%Y-%m-%d %H:%M:%S') fetch failed ($fails) rc=$rc cm=$cm" >> /tmp/dashink.log
 
-    # Kindles do not always rejoin wifi after a long outage. Once at a
-    # threshold, not every cycle, so it does not thrash the radio.
-    [ "$fails" -eq 6 ] && lipc-set-prop com.lab126.cmd wirelessEnable 1 > /dev/null 2>&1
+    # Nothing else asks the connection manager for a link while lab126_gui is
+    # stopped. Every miss, not once: the wifi may be off for hours yet.
+    [ "$cm" != CONNECTED ] && lipc-set-prop com.lab126.cmd ensureConnection wifi > /dev/null 2>&1
 
     # Back off once misses pile up. Capped at 2x so the panel still recovers
     # within ten minutes of the network returning.
