@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jynx Dashink Web Editor</title>
+<style>
+  :root { --bg:#fff; --fg:#1a1a1a; --mut:#666; --line:#d4d4d4; --card:#f6f6f6; --acc:#1a1a1a; --bad:#b00020; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#16191c; --fg:#e8e8e8; --mut:#9aa0a6; --line:#33383d; --card:#1e2327; --acc:#e8e8e8; --bad:#ff6b81; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.4 system-ui,sans-serif; background:var(--bg); color:var(--fg); }
+  .wrap { display:flex; gap:24px; padding:20px; align-items:flex-start; flex-wrap:wrap; }
+  .editor { flex:1 1 460px; min-width:0; max-width:760px; }
+  .side { flex:0 0 auto; position:sticky; top:20px; }
+  h1 { font-size:18px; margin:0 0 12px; }
+  .row { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:10px; }
+  .rowhead, .cell { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .rowhead { margin-bottom:8px; }
+  .cell { padding:6px 0 6px 12px; border-left:3px solid var(--line); margin-top:6px; }
+  label { color:var(--mut); font-size:12px; display:flex; align-items:center; gap:4px; }
+  input, select, textarea, button { font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:4px 8px; }
+  input[type=number] { width:68px; }
+  input[type=checkbox] { width:auto; }
+  textarea { width:220px; height:54px; }
+  button { cursor:pointer; }
+  button:hover { border-color:var(--acc); }
+  button.primary { background:var(--acc); color:var(--bg); border-color:var(--acc); }
+  .sp { flex:1; }
+  .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:14px 0; }
+  .meter { font-size:13px; color:var(--mut); }
+  .meter.over { color:var(--bad); font-weight:600; }
+  .msg { min-height:20px; font-size:13px; }
+  .msg.err { color:var(--bad); }
+  #preview { display:block; width:300px; height:400px; border:1px solid var(--line); background:#fff; image-rendering:auto; }
+  .hint { color:var(--mut); font-size:12px; max-width:300px; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="editor">
+    <h1>Dashink Web Editor</h1>
+    <div class="bar">
+      <span class="meter" id="meter"></span>
+      <span class="sp"></span>
+      <button id="addRow">+ Row</button>
+    </div>
+    <div id="rows"></div>
+    <div class="bar">
+      <label>Token <input id="token" type="password" placeholder="INGEST_TOKEN" size="16"></label>
+      <button class="primary" id="save">Save</button>
+      <button id="defaults">Load built-in layout</button>
+      <button id="reset">Delete saved layout</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+  <div class="side">
+    <img id="preview" alt="Live preview">
+    <div class="hint">Live preview of the draft with current data, 600×800 shown at half size. Nothing changes on the Kindle until you Save.</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const PANEL_H = 800;
+let meta = null, layout = null, timer = null, lastURL = null;
+
+const OPTS = {
+  text:  c => `<label>Text <textarea data-k="text" placeholder="{node} {time} {date} {weekday}">${esc(c.text || "")}</textarea></label>`,
+  size:  c => `<label>Size <input data-k="size" data-num type="number" min="8" max="240" value="${c.size ?? ""}" placeholder="auto"></label>`,
+  days:  c => `<label>Days <input data-k="days" data-num type="number" min="1" max="5" value="${c.days ?? 3}"></label>`,
+  align: c => `<label>Align <select data-k="align">${["left","center","right"].map(a => `<option ${((c.align||"center")===a)?"selected":""}>${a}</option>`).join("")}</select></label>`,
+  bold:  c => `<label><input data-k="bold" data-bool type="checkbox" ${c.bold ? "checked" : ""}> Bold</label>`,
+};
+function esc(s) { return String(s).replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch])); }
+
+function say(text, err) { const m = $("msg"); m.textContent = text; m.className = "msg" + (err ? " err" : ""); }
+
+function meter() {
+  const used = layout.rows.reduce((a, r) => a + (+r.height || 0), 0);
+  const m = $("meter");
+  m.textContent = `${used} / ${PANEL_H}px used` + (used < PANEL_H ? ` (${PANEL_H - used}px blank at the bottom)` : "");
+  m.className = "meter" + (used > PANEL_H ? " over" : "");
+}
+
+function draw() {
+  const box = $("rows"); box.innerHTML = "";
+  layout.rows.forEach((row, ri) => {
+    const el = document.createElement("div"); el.className = "row"; el.dataset.r = ri;
+    el.innerHTML = `
+      <div class="rowhead">
+        <strong>Row ${ri + 1}</strong>
+        <label>Height <input data-k="height" data-num type="number" min="16" max="800" value="${row.height}">px</label>
+        <label>Rule below <select data-k="rule">${["none","light","dark"].map(x => `<option ${row.rule===x?"selected":""}>${x}</option>`).join("")}</select></label>
+        <label><input data-k="divider" data-bool type="checkbox" ${row.divider ? "checked" : ""}> Divider</label>
+        <span class="sp"></span>
+        <button data-act="up" title="Move up">↑</button>
+        <button data-act="down" title="Move down">↓</button>
+        <button data-act="addcell">+ Cell</button>
+        <button data-act="delrow">✕</button>
+      </div>`;
+    row.cells.forEach((c, ci) => {
+      const cell = document.createElement("div"); cell.className = "cell"; cell.dataset.c = ci;
+      const opts = (meta.widgets[c.widget].opts || []).map(o => OPTS[o](c)).join("");
+      cell.innerHTML = `
+        <select data-k="widget">${Object.entries(meta.widgets).map(([k, v]) => `<option value="${k}" ${c.widget===k?"selected":""}>${esc(v.label)}</option>`).join("")}</select>
+        <label>Width <input data-k="w" data-num type="number" min="1" max="12" value="${c.w ?? 1}"></label>
+        ${opts}
+        <span class="sp"></span>
+        <button data-act="left" title="Move left">←</button>
+        <button data-act="right" title="Move right">→</button>
+        <button data-act="delcell">✕</button>`;
+      el.appendChild(cell);
+    });
+    box.appendChild(el);
+  });
+  meter(); queuePreview();
+}
+
+// Edits mutate the model in place without rebuilding, so typing keeps focus.
+$("rows").addEventListener("input", e => {
+  const t = e.target, k = t.dataset.k; if (!k) return;
+  const rowEl = t.closest(".row"), cellEl = t.closest(".cell");
+  const row = layout.rows[+rowEl.dataset.r];
+  const obj = cellEl ? row.cells[+cellEl.dataset.c] : row;
+  let v = t.dataset.bool !== undefined ? t.checked : t.dataset.num !== undefined ? (t.value === "" ? undefined : +t.value) : t.value;
+  if (v === undefined) delete obj[k]; else obj[k] = v;
+  if (k === "widget") { draw(); return; }  // option fields differ per widget
+  meter(); queuePreview();
+});
+
+$("rows").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  const rowEl = b.closest(".row"), cellEl = b.closest(".cell");
+  const ri = +rowEl.dataset.r, row = layout.rows[ri];
+  const swap = (a, i, j) => { if (j >= 0 && j < a.length) [a[i], a[j]] = [a[j], a[i]]; };
+  switch (b.dataset.act) {
+    case "up": swap(layout.rows, ri, ri - 1); break;
+    case "down": swap(layout.rows, ri, ri + 1); break;
+    case "delrow": layout.rows.splice(ri, 1); break;
+    case "addcell": if (row.cells.length < meta.max_cells) row.cells.push({widget: "text", text: "Text"}); break;
+    case "delcell": row.cells.splice(+cellEl.dataset.c, 1); if (!row.cells.length) layout.rows.splice(ri, 1); break;
+    case "left": swap(row.cells, +cellEl.dataset.c, +cellEl.dataset.c - 1); break;
+    case "right": swap(row.cells, +cellEl.dataset.c, +cellEl.dataset.c + 1); break;
+    default: return;
+  }
+  draw();
+});
+
+$("addRow").onclick = () => {
+  if (layout.rows.length >= meta.max_rows) return say(`At most ${meta.max_rows} rows.`, true);
+  layout.rows.push({height: 100, rule: "none", divider: false, cells: [{widget: "text", text: "Hello", size: 32}]});
+  draw();
+};
+
+function queuePreview() { clearTimeout(timer); timer = setTimeout(preview, 250); }
+
+async function preview() {
+  try {
+    const r = await fetch("preview.png", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(layout)});
+    if (!r.ok) { const j = await r.json().catch(() => ({})); return say(j.error || `Preview failed (${r.status})`, true); }
+    const url = URL.createObjectURL(await r.blob());
+    $("preview").src = url;
+    if (lastURL) URL.revokeObjectURL(lastURL);
+    lastURL = url; say("");
+  } catch (err) { say("Preview failed: " + err.message, true); }
+}
+
+async function send(method, body) {
+  const token = $("token").value;
+  try { localStorage.setItem("dashink_token", token); } catch (_) {}
+  const r = await fetch("config.json", {method, headers: {"Content-Type": "application/json", "X-Dashink-Token": token}, body});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+
+$("save").onclick = async () => {
+  try { await send("PUT", JSON.stringify(layout)); say("Saved. The Kindle picks it up on its next fetch."); }
+  catch (err) { say("Save failed: " + err.message, true); }
+};
+$("reset").onclick = async () => {
+  if (!confirm("Delete the saved layout and go back to the built-in panel?")) return;
+  try { await send("DELETE"); say("Deleted. /dash.png uses the built-in panel again."); }
+  catch (err) { say("Delete failed: " + err.message, true); }
+};
+$("defaults").onclick = () => { layout = JSON.parse(JSON.stringify(meta.default)); draw(); };
+
+(async function init() {
+  try { $("token").value = localStorage.getItem("dashink_token") || ""; } catch (_) {}
+  try {
+    const r = await fetch("config.json"); meta = await r.json();
+    layout = JSON.parse(JSON.stringify(meta.layout || meta.default));
+    say(meta.saved ? "Editing the saved layout." : "No saved layout yet: showing the built-in panel as a starting point.");
+    draw();
+  } catch (err) { say("Could not load config: " + err.message, true); }
+})();
+</script>
+</body>
+</html>
